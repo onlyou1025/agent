@@ -77,22 +77,33 @@ class Retriever:
     def format_context(self, retrieval_results: List[Dict[str, Any]]) -> str:
         """
         将检索结果格式化为上下文文本
-        
+
         Args:
             retrieval_results: 检索结果列表
-            
+
         Returns:
             格式化后的上下文文本
         """
         if not retrieval_results:
             return ""
-        
+
         context_parts = []
-        for idx, result in enumerate(retrieval_results, 1):
+        seen_sources = set()
+        source_idx = 1
+
+        for result in retrieval_results:
             content = result["content"]
             source = result["source"]
-            context_parts.append(f"[{idx}] 来源: {source}\n{content}")
-        
+
+            # 对来源进行去重
+            if source not in seen_sources:
+                seen_sources.add(source)
+                context_parts.append(f"[{source_idx}] 来源: {source}\n{content}")
+                source_idx += 1
+            else:
+                # 如果来源已存在，只添加内容
+                context_parts.append(content)
+
         return "\n\n".join(context_parts)
 
 

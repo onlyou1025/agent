@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     
     # Embedding 模型
     embedding_model: str = "all-MiniLM-L6-v2"
+    hf_endpoint: str = "https://hf-mirror.com"
     
     # 文件上传配置
     upload_dir: str = "./data/uploads"

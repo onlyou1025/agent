@@ -3,10 +3,11 @@
 管理 ChromaDB 向量数据库
 """
 import logging
+import requests
 from typing import List, Dict, Any, Optional
+
 import chromadb
 from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
 
 from app.config import settings
 
@@ -24,10 +25,10 @@ class VectorStore:
             settings=Settings(anonymized_telemetry=False)
         )
         
-        # 初始化 Embedding 模型
-        logger.info(f"正在加载 Embedding 模型: {settings.embedding_model}")
-        self.embedding_model = SentenceTransformer(settings.embedding_model)
-        logger.info("Embedding 模型加载完成")
+        # 使用 Ollama 的 Embedding 模型
+        self.embedding_model_name = settings.embedding_model
+        self.ollama_base_url = settings.ollama_base_url
+        logger.info(f"使用 Ollama Embedding 模型: {self.embedding_model_name}")
         
         # 获取或创建集合
         self.collection = self.client.get_or_create_collection(
@@ -36,6 +37,31 @@ class VectorStore:
         )
         
         logger.info(f"向量存储初始化完成，集合: {settings.chroma_collection}")
+    
+    def _get_embedding(self, text: str) -> List[float]:
+        """
+        使用 Ollama API 获取文本的向量表示
+        
+        Args:
+            text: 输入文本
+            
+        Returns:
+            向量列表
+        """
+        try:
+            response = requests.post(
+                f"{self.ollama_base_url}/api/embeddings",
+                json={
+                    "model": self.embedding_model_name,
+                    "prompt": text
+                },
+                timeout=30
+            )
+            response.raise_for_status()
+            return response.json()["embedding"]
+        except Exception as e:
+            logger.error(f"获取 Embedding 失败: {str(e)}")
+            raise
     
     def add_documents(
         self,
@@ -79,8 +105,8 @@ class VectorStore:
                 metadata["knowledge_base_id"] = knowledge_base_id
                 metadatas.append(metadata)
                 
-                # 生成向量
-                embedding = self.embedding_model.encode(content).tolist()
+                # 生成向量（使用 Ollama API）
+                embedding = self._get_embedding(content)
                 embeddings.append(embedding)
             
             if not ids:
@@ -120,8 +146,8 @@ class VectorStore:
             相似文档列表
         """
         try:
-            # 生成查询向量
-            query_embedding = self.embedding_model.encode(query).tolist()
+            # 生成查询向量（使用 Ollama API）
+            query_embedding = self._get_embedding(query)
             
             # 构建过滤条件
             where_filter = None

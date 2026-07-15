@@ -76,15 +76,20 @@ async def send_message(
         # 生成回答
         answer = await llm_service.generate(prompt)
         
-        # 构建引用来源
-        sources = [
-            SourceReference(
-                content=result["content"][:200] + "..." if len(result["content"]) > 200 else result["content"],
-                source=result["source"],
-                score=result["score"]
-            )
-            for result in retrieval_results
-        ]
+        # 构建引用来源（去重）
+        sources = []
+        seen_sources = set()
+        for result in retrieval_results:
+            source_name = result["source"]
+            if source_name not in seen_sources:
+                seen_sources.add(source_name)
+                sources.append(
+                    SourceReference(
+                        content=result["content"][:200] + "..." if len(result["content"]) > 200 else result["content"],
+                        source=source_name,
+                        score=result["score"]
+                    )
+                )
         
         # 保存助手回答
         assistant_message = ChatMessage(
